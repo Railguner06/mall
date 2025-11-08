@@ -249,6 +249,28 @@ VALUES (
 INSERT INTO mall_db.mall_product (id, category_id, name, subtitle, main_image, sub_images, detail, price, stock, status, create_time, update_time) VALUES (30, 100028, '饮料', '美滋滋冰红茶', null, null, null, 0.00, 1000, 1, '2025-11-08 17:06:12', '2025-11-08 17:06:14');
 
 
+-- mall_review.sql 用户评价信息
+DROP TABLE IF EXISTS `mall_review`;
+CREATE TABLE `mall_review` (
+   `id` INT(11) NOT NULL AUTO_INCREMENT COMMENT '评价表id',
+   `user_id` INT(11) NOT NULL COMMENT '用户id',
+   `order_no` BIGINT(20) NOT NULL COMMENT '所属订单号',
+   `product_id` INT(11) NOT NULL COMMENT '商品id',
+   `score` INT(1) DEFAULT '5' COMMENT '评分: 1-5 星',
+   `content` VARCHAR(500) DEFAULT NULL COMMENT '评价内容',
+   `images` VARCHAR(500) DEFAULT NULL COMMENT '晒单图片地址, json格式',
+   `is_anonymous` TINYINT(1) DEFAULT '0' COMMENT '是否匿名: 0-否, 1-是',
+   `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+   `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+   PRIMARY KEY (`id`),
+   KEY `idx_user_product` (`user_id`,`product_id`),
+   UNIQUE KEY `uqe_order_product` (`order_no`, `product_id`) COMMENT '一个订单中一个商品只能评价一次'
+) ENGINE=INNODB DEFAULT CHARSET=utf8;
+
+
+
+
+
 
 
 
