@@ -186,7 +186,63 @@ CREATE TABLE `mall_pay_info` (
 ALTER TABLE mall_user MODIFY create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间';
 ALTER TABLE mall_user MODIFY update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后一次更新时间';
 
+-- ----------------------------
+-- 促销活动表（去掉秒杀，按一级分类parent_id关联）
+-- ----------------------------
+DROP TABLE IF EXISTS `mall_activity`;
+CREATE TABLE `mall_activity` (
+                                 `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                                 `name` varchar(100) NOT NULL COMMENT '活动名称',
+                                 `description` varchar(500) DEFAULT '' COMMENT '活动描述',
+                                 `start_time` datetime NOT NULL COMMENT '活动开始时间',
+                                 `end_time` datetime NOT NULL COMMENT '活动结束时间',
+                                 `status` tinyint NOT NULL DEFAULT 0 COMMENT '活动状态：0-草稿，1-上线，2-下线',
+                                 `type` tinyint NOT NULL COMMENT '活动类型：1-满减，2-折扣，3-赠品',
+                                 `rule_content` json NOT NULL COMMENT '规则内容（JSON格式，按parent_id关联一级分类）',
+                                 `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                 `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                 PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='促销活动表（简化版）';
 
+-- ----------------------------
+-- 初始化活动数据（去掉秒杀，每个类型1个）
+-- ----------------------------
+
+-- 1. 满减活动（关联“食品生鲜”一级分类，parent_id=100004）
+INSERT INTO `mall_activity` (`name`, `description`, `start_time`, `end_time`, `status`, `type`, `rule_content`)
+VALUES (
+           '食品生鲜满减专场',
+           '食品生鲜一级分类下所有商品（零食、生鲜、半成品菜等）满200减30',
+           '2025-01-01 00:00:00',
+           '2026-01-01 23:59:59',
+           1, -- 上线状态
+           1, -- 满减类型
+           '{\"threshold_amount\": 200, \"reduction_amount\": 30, \"parent_id\": 100004}' -- parent_id=100004（食品生鲜）
+       );
+
+-- 2. 折扣活动（关联“家用电器”一级分类，parent_id=100001）
+INSERT INTO `mall_activity` (`name`, `description`, `start_time`, `end_time`, `status`, `type`, `rule_content`)
+VALUES (
+           '家用电器8.8折特惠',
+           '家用电器一级分类下所有商品（冰箱、电视、洗衣机等）直享8.8折',
+           '2025-01-01 00:00:00',
+           '2026-01-01 23:59:59',
+           1, -- 上线状态
+           2, -- 折扣类型
+           '{\"discount_rate\": 0.88, \"parent_id\": 100001}' -- parent_id=100001（家用电器）
+       );
+
+-- 3. 赠品活动（关联“服装箱包”一级分类，parent_id=100003）
+INSERT INTO `mall_activity` (`name`, `description`, `start_time`, `end_time`, `status`, `type`, `rule_content`)
+VALUES (
+           '服装箱包满赠活动',
+           '购买服装箱包一级分类下任意商品，即赠精美配饰1件（赠品库存1000件）',
+           '2025-01-01 00:00:00',
+           '2026-01-01 23:59:59',
+           1, -- 上线状态
+           3, -- 赠品类型
+           '{\"parent_id\": 100003, \"gift_stock\": 1000}' -- parent_id=100003（服装箱包）
+       );
 
 
 
