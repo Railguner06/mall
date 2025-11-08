@@ -22,6 +22,8 @@ public enum OrderStatusEnum {
     TRADE_SUCCESS(50, "交易成功"),
 
     TRADE_CLOSE(60, "交易关闭"),
+
+    REFUND_APPLY(70, "申请退款"),
     ;
 
     Integer code;
@@ -31,5 +33,18 @@ public enum OrderStatusEnum {
     OrderStatusEnum(Integer code, String desc) {
         this.code = code;
         this.desc = desc;
+    }
+
+    /**
+     * 根据状态码 (code) 获取对应的枚举实例
+     */
+    public static OrderStatusEnum codeOf(Integer code) {
+        for (OrderStatusEnum statusEnum : values()) {
+            if (statusEnum.getCode().equals(code)) {
+                return statusEnum;
+            }
+        }
+        // 如果状态码不在枚举中，抛出运行时异常
+        throw new IllegalArgumentException("Invalid OrderStatusEnum code: " + code);
     }
 }

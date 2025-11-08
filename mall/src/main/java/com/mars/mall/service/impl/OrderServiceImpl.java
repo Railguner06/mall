@@ -6,6 +6,15 @@ import com.mars.mall.dao.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mars.mall.enums.*;
+import com.mars.mall.dao.OrderItemMapper;
+import com.mars.mall.dao.OrderMapper;
+import com.mars.mall.dao.ProductMapper;
+import com.mars.mall.dao.ShippingMapper;
+import com.mars.mall.enums.OrderStatusEnum;
+import com.mars.mall.enums.PaymentTypeEnum;
+import com.mars.mall.enums.ProductStatusEnum;
+import com.mars.mall.enums.ResponseEnum;
+import com.mars.mall.form.RefundForm;
 import com.mars.mall.pojo.*;
 import com.mars.mall.service.ICartService;
 import com.mars.mall.service.IOrderService;
@@ -306,6 +315,10 @@ public class OrderServiceImpl implements IOrderService {
         }).collect(Collectors.toList());
         orderVo.setOrderItemVoList(orderItemVoList);
 
+        // 物流跟踪
+        orderVo.setTrackingNumber(order.getTrackingNumber());
+        orderVo.setShippingCompany(order.getShippingCompany());
+
         if (shipping != null){
             orderVo.setShippingId(shipping.getId());
             orderVo.setShippingVo(shipping);//没有专门定义一个ShippingVo类,直接用shipping
@@ -531,5 +544,124 @@ public class OrderServiceImpl implements IOrderService {
         order.setPostage(0);//运费，默认0
         order.setStatus(OrderStatusEnum.NO_PAY.getCode());//订单状态:未支付
         return order;
+    }
+
+    /**
+     * 后管发货（物流跟踪 - 写入运单号）
+     * 状态流转：PAID(20) -> SHIPPED(40)
+     */
+    @Override
+    @Transactional
+    public ResponseVo ship(Long orderNo) {
+        Order order = orderMapper.selectByOrderNo(orderNo);
+        if (order == null) {
+            return ResponseVo.error(ResponseEnum.ORDER_NOT_EXIST);
+        }
+
+        // 只有【已付款】订单才能发货
+        if (!order.getStatus().equals(OrderStatusEnum.PAID.getCode())) {
+            return ResponseVo.error(ResponseEnum.ORDER_STATUS_ERROR, "订单状态不是已付款，无法发货");
+        }
+
+        order.setStatus(OrderStatusEnum.SHIPPED.getCode()); // 状态：已发货 (40)
+        order.setSendTime(new Date()); // 设置发货时间
+
+        // 【物流跟踪】: 写入运单号和公司（模拟生成）
+        order.setTrackingNumber("SF" + System.currentTimeMillis());
+        order.setShippingCompany("顺丰速运");
+
+        int row = orderMapper.updateByPrimaryKeySelective(order); // 【完整逻辑】: 更新数据库
+        if (row <= 0) {
+            return ResponseVo.error(ResponseEnum.ERROR, "发货状态更新失败");
+        }
+
+        return ResponseVo.success();
+    }
+
+    /**
+     * 用户确认收货
+     * 状态流转：SHIPPED(40) -> TRADE_SUCCESS(50)
+     */
+    @Override
+    public ResponseVo receive(Integer uid, Long orderNo) {
+        Order order = orderMapper.selectByOrderNo(orderNo);
+        if (order == null || !order.getUserId().equals(uid)) {
+            // 订单不存在或不属于当前用户
+            return ResponseVo.error(ResponseEnum.ORDER_NOT_EXIST);
+        }
+
+        // 只有【已发货】订单才能进行确认收货
+        if (!order.getStatus().equals(OrderStatusEnum.SHIPPED.getCode())) {
+            return ResponseVo.error(ResponseEnum.ORDER_STATUS_ERROR, "订单状态不是已发货，无法确认收货");
+        }
+
+        order.setStatus(OrderStatusEnum.TRADE_SUCCESS.getCode()); // 状态：交易成功 (50)
+        order.setEndTime(new Date()); // 设置交易完成时间
+
+        int row = orderMapper.updateByPrimaryKeySelective(order); // 【完整逻辑】: 更新数据库
+        if (row <= 0) {
+            return ResponseVo.error(ResponseEnum.ERROR, "确认收货状态更新失败");
+        }
+
+        return ResponseVo.success();
+    }
+
+    /**
+     * 用户发起退款申请
+     * 状态流转：PAID(20)/SHIPPED(40) -> REFUND_APPLY(70)
+     */
+    @Override
+    @Transactional
+    public ResponseVo applyRefund(Integer uid, Long orderNo, RefundForm form) {
+        Order order = orderMapper.selectByOrderNo(orderNo);
+        if (order == null || !order.getUserId().equals(uid)) {
+            return ResponseVo.error(ResponseEnum.ORDER_NOT_EXIST);
+        }
+
+        // 只有已付款或已发货的订单才能申请退款
+        if (!order.getStatus().equals(OrderStatusEnum.PAID.getCode())
+                && !order.getStatus().equals(OrderStatusEnum.SHIPPED.getCode())) {
+            return ResponseVo.error(ResponseEnum.ORDER_STATUS_ERROR, "该订单状态不支持申请退款");
+        }
+
+        order.setStatus(OrderStatusEnum.REFUND_APPLY.getCode()); // 状态：申请退款 (70)
+        // 实际项目：应将 form.getReason() 记录到日志或专门的退款表中
+
+        int row = orderMapper.updateByPrimaryKeySelective(order); // 【完整逻辑】: 更新数据库
+        if (row <= 0) {
+            return ResponseVo.error(ResponseEnum.ERROR, "申请退款状态更新失败");
+        }
+
+        return ResponseVo.success();
+    }
+
+    /**
+     * 平台批准退款（后管操作）
+     * 状态流转：REFUND_APPLY(70) -> TRADE_CLOSED(60)
+     */
+    @Override
+    @Transactional
+    public ResponseVo approveRefund(Long orderNo) {
+        Order order = orderMapper.selectByOrderNo(orderNo);
+        if (order == null) {
+            return ResponseVo.error(ResponseEnum.ORDER_NOT_EXIST);
+        }
+
+        // 只有申请退款的订单才能被批准
+        if (!order.getStatus().equals(OrderStatusEnum.REFUND_APPLY.getCode())) {
+            return ResponseVo.error(ResponseEnum.ORDER_STATUS_ERROR, "订单状态不是申请退款，无法批准");
+        }
+
+        // TODO: 实际项目：应调用支付系统 PayService 进行实际退款操作并等待结果
+
+        order.setStatus(OrderStatusEnum.TRADE_CLOSE.getCode()); // 状态：交易关闭 (60)
+        order.setCloseTime(new Date());
+
+        int row = orderMapper.updateByPrimaryKeySelective(order); // 【完整逻辑】: 更新数据库
+        if (row <= 0) {
+            return ResponseVo.error(ResponseEnum.ERROR, "批准退款状态更新失败");
+        }
+
+        return ResponseVo.success();
     }
 }

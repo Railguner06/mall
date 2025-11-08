@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.mars.mall.dao.ReviewMapper">
+    <resultMap id="BaseResultMap" type="com.mars.mall.pojo.Review">
+        <id column="id" jdbcType="INTEGER" property="id" />
+        <result column="user_id" jdbcType="INTEGER" property="userId" />
+        <result column="order_no" jdbcType="BIGINT" property="orderNo" />
+        <result column="product_id" jdbcType="INTEGER" property="productId" />
+        <result column="score" jdbcType="INTEGER" property="score" />
+        <result column="content" jdbcType="VARCHAR" property="content" />
+        <result column="images" jdbcType="VARCHAR" property="images" />
+        <result column="is_anonymous" jdbcType="INTEGER" property="isAnonymous" />
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime" />
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, user_id, order_no, product_id, score, content, images, is_anonymous, create_time, update_time
+    </sql>
+
+    <select id="selectByOrderNoAndProductId" resultMap="BaseResultMap" parameterType="map">
+        select
+        <include refid="Base_Column_List" />
+        from mall_review
+        where order_no = #{orderNo,jdbcType=BIGINT}
+        and product_id = #{productId,jdbcType=INTEGER}
+    </select>
+
+    <select id="selectByProductId" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List" />
+        from mall_review
+        where product_id = #{productId,jdbcType=INTEGER}
+        order by create_time desc
+    </select>
+
+    <insert id="insertSelective" parameterType="com.mars.mall.pojo.Review" useGeneratedKeys="true" keyProperty="id">
+        insert into mall_review
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">
+                user_id,
+            </if>
+            <if test="orderNo != null">
+                order_no,
+            </if>
+            <if test="productId != null">
+                product_id,
+            </if>
+            <if test="score != null">
+                score,
+            </if>
+            <if test="content != null">
+                content,
+            </if>
+            <if test="images != null">
+                images,
+            </if>
+            <if test="isAnonymous != null">
+                is_anonymous,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">
+                #{userId,jdbcType=INTEGER},
+            </if>
+            <if test="orderNo != null">
+                #{orderNo,jdbcType=BIGINT},
+            </if>
+            <if test="productId != null">
+                #{productId,jdbcType=INTEGER},
+            </if>
+            <if test="score != null">
+                #{score,jdbcType=INTEGER},
+            </if>
+            <if test="content != null">
+                #{content,jdbcType=VARCHAR},
+            </if>
+            <if test="images != null">
+                #{images,jdbcType=VARCHAR},
+            </if>
+            <if test="isAnonymous != null">
+                #{isAnonymous,jdbcType=INTEGER},
+            </if>
+        </trim>
+    </insert>
+</mapper>

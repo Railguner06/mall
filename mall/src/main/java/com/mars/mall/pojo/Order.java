@@ -38,4 +38,6 @@ public class Order {
 
     private Date updateTime;//更新时间
 
+    private String trackingNumber; // 运单编号
+    private String shippingCompany; // 物流公司
 }

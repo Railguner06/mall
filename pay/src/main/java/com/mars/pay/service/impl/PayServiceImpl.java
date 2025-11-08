@@ -1,14 +1,12 @@
 package com.mars.pay.service.impl;
 
 import com.google.gson.Gson;
-import com.lly835.bestpay.config.WxPayConfig;
 import com.lly835.bestpay.enums.BestPayPlatformEnum;
 import com.lly835.bestpay.enums.BestPayTypeEnum;
 import com.lly835.bestpay.enums.OrderStatusEnum;
 import com.lly835.bestpay.model.PayRequest;
 import com.lly835.bestpay.model.PayResponse;
 import com.lly835.bestpay.service.BestPayService;
-import com.lly835.bestpay.service.impl.BestPayServiceImpl;
 import com.mars.pay.dao.PayInfoMapper;
 import com.mars.pay.enums.PayPlatformEnum;
 import com.mars.pay.pojo.PayInfo;
@@ -69,7 +67,10 @@ public class PayServiceImpl implements IPayService {
 
     /**
      * 异步通知处理
-     *
+     * 1. 签名校验 (安全性)
+     * 2. 金额校验 (安全性)
+     * 3. 修改支付状态
+     * 4. 发送 MQ 消息给商城系统 (异步通知)
      * @param notifyData
      */
     @Override

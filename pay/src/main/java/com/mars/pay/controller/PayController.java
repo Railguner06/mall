@@ -2,7 +2,6 @@ package com.mars.pay.controller;
 
 import com.lly835.bestpay.config.WxPayConfig;
 import com.lly835.bestpay.enums.BestPayTypeEnum;
-import com.lly835.bestpay.model.PayResponse;
 import com.mars.pay.pojo.PayInfo;
 import com.mars.pay.service.IPayService;
 import lombok.extern.slf4j.Slf4j;
@@ -17,8 +16,6 @@ import java.util.Map;
 
 /**
  * @description:
- * @author: Mars
- * @create: 2021-09-26 20:17
  **/
 @Controller
 @RequestMapping("/pay")
@@ -59,12 +56,20 @@ public class PayController {
         return new ModelAndView("create",map);
     }
 
+    /**
+     * 【功能：异步通知回调】接收微信/支付宝的支付结果通知
+     * POST /pay/notify
+     */
     @PostMapping("/notify")
     @ResponseBody
     public String asyncNotify(@RequestBody String notifyData){
         return payService.asyncNotify(notifyData);
     }
 
+    /**
+     * 查询支付记录（供前端轮询，实现便捷性）
+     * GET /pay/queryByOrderId
+     */
     @GetMapping("/queryByOrderId")
     @ResponseBody
     public PayInfo queryByOrderId(@RequestParam String orderId) {

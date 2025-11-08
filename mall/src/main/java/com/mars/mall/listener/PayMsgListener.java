@@ -12,8 +12,6 @@ import org.springframework.stereotype.Component;
 /**
  * @description: RabbitMQ 消息队列监听，用来接收从pay工程监听到的消息 (异步处理)
  * 关于PayInfo，正确姿势：pay项目提供client.jar, mall项目引入jar包
- * @author: Mars
- * @create: 2022-02-10 17:46
  **/
 @Component
 @RabbitListener(queues = "payNotify") //配置监听的消息队列名
