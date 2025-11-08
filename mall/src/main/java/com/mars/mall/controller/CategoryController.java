@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * @description:
+ * @description: 商品模块controller层
  * @author: Mars
  * @create: 2021-09-29 20:26
  **/

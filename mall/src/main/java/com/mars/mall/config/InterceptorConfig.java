@@ -1,5 +1,7 @@
-package com.mars.mall;
+package com.mars.mall.config;
 
+import com.mars.mall.AdminRoleInterceptor;
+import com.mars.mall.UserLoginInterceptor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -23,5 +25,9 @@ public class InterceptorConfig implements WebMvcConfigurer {
                 .addPathPatterns("/**")
                 .excludePathPatterns("/user/register","/user/login","/categories","/products",
                         "/products/*","/error");
+
+        // 管理员权限拦截，仅作用于 /admin/** 路径
+        registry.addInterceptor(new AdminRoleInterceptor())
+                .addPathPatterns("/admin/**");
     }
 }
