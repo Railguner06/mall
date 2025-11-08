@@ -2,14 +2,10 @@ package com.mars.mall.service.impl;
 
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
-import com.mars.mall.dao.OrderItemMapper;
-import com.mars.mall.dao.OrderMapper;
-import com.mars.mall.dao.ProductMapper;
-import com.mars.mall.dao.ShippingMapper;
-import com.mars.mall.enums.OrderStatusEnum;
-import com.mars.mall.enums.PaymentTypeEnum;
-import com.mars.mall.enums.ProductStatusEnum;
-import com.mars.mall.enums.ResponseEnum;
+import com.mars.mall.dao.*;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mars.mall.enums.*;
 import com.mars.mall.pojo.*;
 import com.mars.mall.service.ICartService;
 import com.mars.mall.service.IOrderService;
@@ -23,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -48,6 +46,14 @@ public class OrderServiceImpl implements IOrderService {
 
     @Autowired
     private OrderItemMapper orderItemMapper;
+
+    @Autowired
+    private ActivityMapper activityMapper;
+
+    @Autowired
+    private CategoryMapper categoryMapper;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * 创建订单
@@ -117,9 +123,23 @@ public class OrderServiceImpl implements IOrderService {
 
         }
 
+        // 活动相关的计算：获取当前有效且作用域匹配的活动
+        Set<Integer> categoryIdSet = productList.stream()
+                .map(Product::getCategoryId)
+                .collect(Collectors.toSet());
+        List<Activity> activeActivities = findActiveActivitiesForCart(categoryIdSet, productIdSet);
+        // 将赠品写入订单条目（零价，不影响付款金额）
+        addGiftItemsFromActivities(uid, orderNo, orderItemList, activeActivities);
+
         //计算总价，只计算被选中的商品
         //生成订单，入库: order和order_item, 添加事务:使用@Transactional注解
         Order order = buildOrder(uid, orderNo, shippingId, orderItemList);//构造订单
+
+        // 应用活动优惠，调整订单应付金额
+        BigDecimal adjusted = applyPromotions(order.getPayment(), activeActivities, orderItemList);
+        if (adjusted != null && adjusted.compareTo(BigDecimal.ZERO) >= 0) {
+            order.setPayment(adjusted);
+        }
 
         int rowForOrder = orderMapper.insertSelective(order);//将订单插入数据库订单表
         if (rowForOrder <= 0){
@@ -322,6 +342,168 @@ public class OrderServiceImpl implements IOrderService {
         item.setQuantity(quantity);
         item.setTotalPrice(product.getPrice().multiply(BigDecimal.valueOf(quantity)));
         return item;
+    }
+
+    /**
+     * 依据活动写入赠品条目到订单：零单价与零总价，不影响支付金额
+     * 规则：type=3 赠品；
+     */
+    private void addGiftItemsFromActivities(Integer uid,
+                                            Long orderNo,
+                                            List<OrderItem> orderItemList,
+                                            List<Activity> activities) {
+        if (activities == null || activities.isEmpty()) return;
+        for (Activity a : activities) {
+            if (a.getType() == null || a.getType().equals(ActivityTypeEnum.GIFT)) continue;
+            String rc = a.getRuleContent();
+            if (rc == null || rc.isEmpty()) continue;
+            try {
+                JsonNode root = objectMapper.readTree(rc);
+                // 使用 category_id 作为赠品商品ID，数量默认 1
+                Integer giftProductId = root.path("category_id").isInt() ? root.path("category_id").asInt() : null;
+                OrderItem giftItem = new OrderItem();
+                giftItem.setUserId(uid);
+                giftItem.setOrderNo(orderNo);
+                giftItem.setQuantity(1);
+                giftItem.setCurrentUnitPrice(BigDecimal.ZERO);
+                giftItem.setTotalPrice(BigDecimal.ZERO);
+
+                if (giftProductId != null) {
+                    Product giftProduct = productMapper.selectByPrimaryKey(giftProductId);
+                    if (giftProduct != null) {
+                        giftItem.setProductId(giftProduct.getId());
+                        giftItem.setProductName("赠品:" + giftProduct.getName());
+                        giftItem.setProductImage(giftProduct.getMainImage());
+                    } else {
+                        giftItem.setProductName("赠品");
+                        giftItem.setProductImage("");
+                    }
+                } else {
+                    giftItem.setProductName("赠品");
+                    giftItem.setProductImage("");
+                }
+
+                orderItemList.add(giftItem);
+            } catch (Exception ignore) {
+            }
+        }
+    }
+
+    /**
+     * 查询当前有效并且与购物车范围匹配的活动
+     */
+    private List<Activity> findActiveActivitiesForCart(Set<Integer> categoryIdSet,
+                                                       Set<Integer> productIdSet) {
+        List<Activity> onlineList = activityMapper.selectByFilters(ActivityStatusEnum.ONLINE.getCode(), null, null);
+        LocalDateTime now = LocalDateTime.now();
+        return onlineList.stream()
+                .filter(a -> (a.getStartTime() == null || !now.isBefore(a.getStartTime()))
+                        && (a.getEndTime() == null || !now.isAfter(a.getEndTime())))
+                .filter(a -> matchesScope(a.getRuleContent(), categoryIdSet, productIdSet))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 解析 ruleContent 判断活动是否匹配购物车商品/类目范围
+     * 兼容字段：parent_id（目标id），scope_type（product/category），未指定视为全局
+     */
+    private boolean matchesScope(String ruleContent,
+                                 Set<Integer> categoryIdSet,
+                                 Set<Integer> productIdSet) {
+        if (ruleContent == null || ruleContent.isEmpty()) return true;
+        try {
+            JsonNode root = objectMapper.readTree(ruleContent);
+            JsonNode parentNode = root.path("parent_id");
+            Integer parentId = parentNode.isInt() ? parentNode.asInt() : null;
+            String scopeType = root.path("scope_type").asText(null);
+
+            if (parentId == null) return true;
+            if ("product".equalsIgnoreCase(scopeType)) {
+                return productIdSet.contains(parentId);
+            }
+            if ("category".equalsIgnoreCase(scopeType)) {
+                return categoryIdSet.contains(parentId);
+            }
+            return productIdSet.contains(parentId) || categoryIdSet.contains(parentId);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * 基础优惠计算：选择使总价最低的单个活动（满减/折扣），不叠加
+     */
+    private BigDecimal applyPromotions(BigDecimal originalPayment, List<Activity> activities, List<OrderItem> orderItemList) {
+        if (originalPayment == null || activities == null || activities.isEmpty()) return originalPayment;
+
+        // 构建商品与类目父ID的缓存，用于快速计算命中 parent_id 的商品总价
+        // 只有parent_id是json里面的parent_id的商品才可以进行计算
+        Set<Integer> productIdSet = orderItemList.stream()
+                .map(OrderItem::getProductId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Integer, Product> productMap = productMapper.selectByProductIdSet(productIdSet)
+                .stream().collect(Collectors.toMap(Product::getId, p -> p));
+
+        Map<Integer, Integer> categoryParentMap = categoryMapper.selectAll().stream()
+                .collect(Collectors.toMap(Category::getId, Category::getParentId));
+
+        BigDecimal best = originalPayment;
+        for (Activity a : activities) {
+            try {
+                String rc = a.getRuleContent();
+                if (rc == null || rc.isEmpty()) continue;
+                JsonNode root = objectMapper.readTree(rc);
+                Integer scopeParentId = root.path("parent_id").isInt() ? root.path("parent_id").asInt() : null;
+                if (scopeParentId == null) continue;
+
+                // 计算命中该 parent_id 的商品总价（只对这些商品进行优惠计算）
+                BigDecimal eligibleSubtotal = BigDecimal.ZERO;
+                for (OrderItem item : orderItemList) {
+                    Integer pid = item.getProductId();
+                    if (pid == null) continue; // 跳过赠品等无商品ID条目
+                    Product p = productMap.get(pid);
+                    if (p == null) continue;
+                    Integer parentId = categoryParentMap.get(p.getCategoryId());
+                    if (parentId != null && parentId.equals(scopeParentId)) {
+                        if (item.getTotalPrice() != null) {
+                            eligibleSubtotal = eligibleSubtotal.add(item.getTotalPrice());
+                        } else if (item.getCurrentUnitPrice() != null && item.getQuantity() != null) {
+                            eligibleSubtotal = eligibleSubtotal.add(item.getCurrentUnitPrice().multiply(new BigDecimal(item.getQuantity())));
+                        }
+                    }
+                }
+
+                BigDecimal candidate = originalPayment;
+                Integer type = a.getType();
+                if (type != null && type.equals(ActivityTypeEnum.FULL_REDUCTION)) { // 满减：仅当命中分类的商品小计达到阈值时触发，减免不超过该小计
+                    BigDecimal threshold = root.path("threshold_amount").isNumber()
+                            ? new BigDecimal(root.path("threshold_amount").asText()) : null;
+                    BigDecimal reduction = root.path("reduction_amount").isNumber()
+                            ? new BigDecimal(root.path("reduction_amount").asText()) : null;
+                    if (threshold != null && reduction != null && eligibleSubtotal.compareTo(threshold) >= 0) {
+                        BigDecimal actualReduction = reduction.min(eligibleSubtotal);
+                        candidate = originalPayment.subtract(actualReduction);
+                    }
+                } else if (type != null && type.equals(ActivityTypeEnum.DISCOUNT)) { // 折扣：只对命中分类的商品部分打折
+                    BigDecimal rate = root.path("discount_rate").isNumber()
+                            ? new BigDecimal(root.path("discount_rate").asText()) : null;
+                    if (rate != null && rate.compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal discountedEligible = eligibleSubtotal.multiply(rate).setScale(2, RoundingMode.HALF_UP);
+                        candidate = originalPayment.subtract(eligibleSubtotal).add(discountedEligible);
+                    }
+                } else {
+                    // 赠品类型（3）默认不改变支付金额
+                    candidate = originalPayment;
+                }
+
+                if (candidate.compareTo(best) < 0) {
+                    best = candidate.max(BigDecimal.ZERO);
+                }
+            } catch (Exception ignore) {
+            }
+        }
+        return best;
     }
 
     /**
