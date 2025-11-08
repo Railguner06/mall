@@ -3,6 +3,7 @@ package com.mars.mall.controller;
 import com.mars.mall.consts.MallConst;
 import com.mars.mall.form.UserLoginForm;
 import com.mars.mall.form.UserRegisterForm;
+import com.mars.mall.form.UserUpdateForm;
 import com.mars.mall.pojo.User;
 import com.mars.mall.service.IUserService;
 import com.mars.mall.vo.ResponseVo;
@@ -11,6 +12,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -35,7 +37,7 @@ public class UserController {
      * BindingResult 用于接收前一个参数校验的错误信息, 前端将不再显示错误信息(本项目后续废弃)
      * @return
      * @RequestBody注解： 主要用来接收前端传递给后端的json字符串中的数据的(请求体中的数据的)；
-     * 而最常用的使用请求体传参的无疑是POST请求了，所以使用@RequestBody接收数据时，一般都用POST方式进行提交。
+     * 而最常用的使用请求体传参的无疑是最POST请求了，所以使用@RequestBody接收数据时，一般都用POST方式进行提交。
      *
      *  * @Valid介绍及相关注解  主要用于表单验证，减轻了代码量
      *  * 在Springboot启动器的web包下包含了javax.validation.Valid，所以无需添加多余的依赖
@@ -73,7 +75,6 @@ public class UserController {
 
         ResponseVo<User> userResponseVo = userService.login(userLoginForm.getUsername(), userLoginForm.getPassword());
 
-        //设置Session(服务端)，前端使用cookie：该Session键为常量，值为当前登录用户的对象实例user
         session.setAttribute(MallConst.CURRENT_USER,userResponseVo.getData());
         log.info("/login sessionId={}",session.getId());
 
@@ -105,5 +106,21 @@ public class UserController {
         log.info("/user sessionId={}",session.getId());
         session.removeAttribute(MallConst.CURRENT_USER);//移除session
         return ResponseVo.success();
+    }
+
+    // 新增：完善个人信息（更新用户名/邮箱/手机号/密码）
+    @PutMapping("/user/profile")
+    public ResponseVo<User> updateProfile(@Valid @RequestBody UserUpdateForm form,
+                                          HttpSession session) {
+        User current = (User) session.getAttribute(MallConst.CURRENT_USER);
+        User update = new User();
+        BeanUtils.copyProperties(form, update);
+
+        ResponseVo<User> result = userService.updateProfile(current.getId(), update);
+        if (result.getStatus().equals(0)) {
+            // 更新 session 中的当前用户信息
+            session.setAttribute(MallConst.CURRENT_USER, result.getData());
+        }
+        return result;
     }
 }

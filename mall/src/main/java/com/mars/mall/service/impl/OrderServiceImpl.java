@@ -2,6 +2,21 @@ package com.mars.mall.service.impl;
 
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
+import com.mars.mall.pojo.*;
+import com.mars.mall.service.ICartService;
+import com.mars.mall.service.IOrderService;
+import com.mars.mall.vo.OrderItemVo;
+import com.mars.mall.vo.OrderVo;
+import com.mars.mall.vo.ResponseVo;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
+
+import java.math.BigDecimal;
+import java.util.*;
+import java.util.stream.Collectors;
 import com.mars.mall.dao.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -46,7 +61,6 @@ public class OrderServiceImpl implements IOrderService {
 
     @Autowired
     private OrderItemMapper orderItemMapper;
-
     @Autowired
     private ActivityMapper activityMapper;
 
@@ -54,6 +68,7 @@ public class OrderServiceImpl implements IOrderService {
     private CategoryMapper categoryMapper;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+
 
     /**
      * 创建订单
@@ -122,8 +137,7 @@ public class OrderServiceImpl implements IOrderService {
             }
 
         }
-
-        // 活动相关的计算：获取当前有效且作用域匹配的活动
+         // 活动相关的计算：获取当前有效且作用域匹配的活动
         Set<Integer> categoryIdSet = productList.stream()
                 .map(Product::getCategoryId)
                 .collect(Collectors.toSet());
@@ -134,8 +148,7 @@ public class OrderServiceImpl implements IOrderService {
         //计算总价，只计算被选中的商品
         //生成订单，入库: order和order_item, 添加事务:使用@Transactional注解
         Order order = buildOrder(uid, orderNo, shippingId, orderItemList);//构造订单
-
-        // 应用活动优惠，调整订单应付金额
+          // 应用活动优惠，调整订单应付金额
         BigDecimal adjusted = applyPromotions(order.getPayment(), activeActivities, orderItemList);
         if (adjusted != null && adjusted.compareTo(BigDecimal.ZERO) >= 0) {
             order.setPayment(adjusted);
@@ -343,8 +356,7 @@ public class OrderServiceImpl implements IOrderService {
         item.setTotalPrice(product.getPrice().multiply(BigDecimal.valueOf(quantity)));
         return item;
     }
-
-    /**
+/**
      * 依据活动写入赠品条目到订单：零单价与零总价，不影响支付金额
      * 规则：type=3 赠品；
      */
@@ -533,3 +545,5 @@ public class OrderServiceImpl implements IOrderService {
         return order;
     }
 }
+
+   

@@ -2,8 +2,8 @@ spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: root
-    password: wjh1316156936
-    url: jdbc:mysql://localhost:3306/mall_db?characterEncoding=utf-8&useSSL=false&serverTimezone=GMT
+    password: 1234567890-=
+    url: jdbc:mysql://localhost:3306/mall?characterEncoding=utf-8&useSSL=false&serverTimezone=GMT
   redis:
     host: 127.0.0.1
     port: 6379

@@ -2,6 +2,7 @@ package com.mars.mall.form;
 
 import lombok.Data;
 
+import javax.validation.constraints.Email;
 import javax.validation.constraints.NotBlank;
 
 /**
@@ -29,5 +30,10 @@ public class UserRegisterForm {
     @NotBlank
     private String password;//密码
     @NotBlank
+    @Email(message = "邮箱格式不正确")
     private String email;//邮箱
+
+    // 可选：手机号，用于注册与登录。校验为 11 位数字（国内手机号）
+    @javax.validation.constraints.Pattern(regexp = "^\\d{11}$", message = "手机号格式错误")
+    private String phone;//手机号（可选）
 }

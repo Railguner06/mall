@@ -39,12 +39,19 @@ public class ProductServiceImpl implements IProductService {
     /**
      * 商品页面展示
      * @param categoryId 商品所属类目的id
+     * @param keyword 搜索关键字（可选）
      * @param pageNum 页码
      * @param pageSize 页面条目数量
      * @return
      */
+    // 兼容旧签名：委托到带 keyword 的新方法
     @Override
     public ResponseVo<PageInfo> list(Integer categoryId, Integer pageNum, Integer pageSize) {
+        return list(categoryId, null, pageNum, pageSize);
+    }
+
+    @Override
+    public ResponseVo<PageInfo> list(Integer categoryId, String keyword, Integer pageNum, Integer pageSize) {
         Set<Integer> categoryIdSet = new HashSet<>();
         if (categoryId != null) {
             categoryService.findSubCategoryId(categoryId,categoryIdSet);
@@ -53,8 +60,8 @@ public class ProductServiceImpl implements IProductService {
 
         PageHelper.startPage(pageNum,pageSize);//先设置好页面的分页
 
-        //使用stream+lambda把类目id集合中的产品都查询出来，并封装到productVoList
-        List<Product> productsList = productMapper.selectByCategoryIdSet(categoryIdSet);
+        // 使用分类集合 + 关键词搜索
+        List<Product> productsList = productMapper.selectByCategoryIdSetAndKeyword(categoryIdSet, keyword);
         List<ProductVo> productVoList = productsList.stream()
                 .map(e -> {
                     ProductVo productVo = new ProductVo();
@@ -76,6 +83,9 @@ public class ProductServiceImpl implements IProductService {
     @Override
     public ResponseVo<ProductDetailVo> detail(Integer productId) {
         Product product = productMapper.selectByPrimaryKey(productId);
+        if (product == null) {
+            return ResponseVo.error(ResponseEnum.PRODUCT_NOT_EXIST);
+        }
         //商品下架或者被删除，则抛出错误
         if (product.getStatus().equals(ProductStatusEnum.OFF_SALE.getCode())
                 || product.getStatus().equals(ProductStatusEnum.DELETE.getCode())){
@@ -83,9 +93,9 @@ public class ProductServiceImpl implements IProductService {
         }
 
         ProductDetailVo productDetailVo = new ProductDetailVo();
-        BeanUtils.copyProperties(product,productDetailVo);
+        BeanUtils.copyProperties(product, productDetailVo);
         //敏感数据处理
-        productDetailVo.setStock(product.getStock() > 100 ? 100 :product.getStock());//隐瞒真实库存
+        productDetailVo.setStock(product.getStock() > 100 ? 100 : product.getStock()); //隐瞒真实库存
         return ResponseVo.success(productDetailVo);
     }
 }

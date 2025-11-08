@@ -17,5 +17,8 @@ public interface IUserService {
     /**
      * 登录
      */
-    ResponseVo<User> login(String username,String password);
+    ResponseVo<User> login(String username, String password);
+
+    // 新增：完善个人信息
+    ResponseVo<User> updateProfile(Integer uid, User update);
 }

@@ -24,9 +24,10 @@ public class ProductController {
     //默认展示第1页的10条数据
     @GetMapping("/products")
     public ResponseVo<PageInfo> list(@RequestParam(required = false) Integer categoryId,
+                                     @RequestParam(required = false) String keyword,
                                      @RequestParam(required = false,defaultValue = "1") Integer pageNum,
                                      @RequestParam(required = false,defaultValue = "10") Integer pageSize){
-        return productService.list(categoryId,pageNum,pageSize);
+        return productService.list(categoryId, keyword, pageNum, pageSize);
     }
 
     //通过 @PathVariable 可以将URL中占位符参数{xxx}绑定到处理器类的方法形参中@PathVariable(“xxx“)

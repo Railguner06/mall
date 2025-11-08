@@ -19,24 +19,33 @@
     id, category_id, name, subtitle, main_image, sub_images, detail, price, stock, status, 
     create_time, update_time
   </sql>
-  <select id="selectByPrimaryKey" parameterType="java.lang.Integer" resultMap="BaseResultMap">
-    select 
-    <include refid="Base_Column_List" />
-    from mall_product
-    where id = #{id,jdbcType=INTEGER}
-  </select>
 
-  <select id="selectByCategoryIdSet" resultMap="BaseResultMap">
+  <!-- 列表 + 搜索 -->
+  <select id="selectByCategoryIdSetAndKeyword" resultMap="BaseResultMap">
     select
     <include refid="Base_Column_List" />
     from mall_product
     where status = 1
-    <if test="categoryIdSet.size() > 0">
+    <if test="categoryIdSet != null and categoryIdSet.size() > 0">
       and category_id in
       <foreach collection="categoryIdSet" item="item" index="index" open="(" separator="," close=")">
         #{item}
       </foreach>
     </if>
+    <if test="keyword != null and keyword != ''">
+      and (
+        name like concat('%', #{keyword}, '%')
+        or subtitle like concat('%', #{keyword}, '%')
+        or detail like concat('%', #{keyword}, '%')
+      )
+    </if>
+  </select>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+    select 
+    <include refid="Base_Column_List" />
+    from mall_product
+    where id = #{id,jdbcType=INTEGER}
   </select>
 
   <select id="selectByProductIdSet" resultMap="BaseResultMap">

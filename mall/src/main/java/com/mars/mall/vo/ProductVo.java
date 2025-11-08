@@ -25,4 +25,8 @@ public class ProductVo {
     private BigDecimal price;//价格,单位-元保留两位小数
 
     private Integer status;//商品状态.1-在售 2-下架 3-删除
+
+    private String detail;//商品描述（用于列表展示）
+
+    private Integer stock;//库存数量（用于列表展示）
 }

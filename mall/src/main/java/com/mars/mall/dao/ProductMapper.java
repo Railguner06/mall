@@ -23,7 +23,9 @@ public interface ProductMapper {
     int updateByPrimaryKey(Product record);
 
     //传入参数不是基础类型，得用注解标识并在mapper配置文件中把collection指定
-    List<Product> selectByCategoryIdSet(@Param("categoryIdSet") Set<Integer> categoryIdSet);//通过类目id集合查找商品
+    // 通过类目id集合 + 关键词查找商品（关键词可选）
+    List<Product> selectByCategoryIdSetAndKeyword(@Param("categoryIdSet") Set<Integer> categoryIdSet,
+                                                  @Param("keyword") String keyword);//通过类目id集合查找商品并支持搜索
 
     List<Product> selectByProductIdSet(@Param("productIdSet") Set<Integer> productIdSet);//通过商品id集合查找商品
 }

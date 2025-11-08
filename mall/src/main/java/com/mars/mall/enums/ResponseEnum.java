@@ -19,6 +19,7 @@ public enum ResponseEnum {
     PARAM_ERROR(3,"参数错误"),
 
     EMAIL_EXIST(4,"邮箱已存在"),
+    PHONE_EXIST(5,"手机号已存在"), // 新增：手机号唯一性校验
 
     NEED_LOGIN(10,"用户未登录，请先登录"),
 

@@ -86,11 +86,13 @@ public class CartServiceImpl implements ICartService {
             //没有该商品，新增
             cart = new Cart(product.getId(),quantity,form.getSelected());
         } else {
-            //购物车中已经有该商品，数量+1
-            cart = gson.fromJson(value,Cart.class);//将json字符串反序列化为cart对象
-            cart.setQuantity(cart.getQuantity() + quantity);//将购物车中已有商品数量+1
+            cart = gson.fromJson(value, Cart.class);
+            int newQuantity = cart.getQuantity() + quantity;
+            if (newQuantity > product.getStock()) {
+                return ResponseVo.error(ResponseEnum.PRODUCT_STOCK_ERROR);
+            }
+            cart.setQuantity(newQuantity);
         }
-        //将指定商品(带商品id作为map键索引)存入指定的购物车(键)中
         opsForHash.put(redisKey, String.valueOf(product.getId()), gson.toJson(cart));
 
         return list(uid);
@@ -171,9 +173,20 @@ public class CartServiceImpl implements ICartService {
             //没有该商品，报错
             return ResponseVo.error(ResponseEnum.CART_PRODUCT_NOT_EXIST);
         }
-        //购物车中已经有该商品，修改内容
-        Cart cart = gson.fromJson(value,Cart.class);//将json字符串反序列化为cart对象
+        Cart cart = gson.fromJson(value, Cart.class);
+
+        Product product = productMapper.selectByPrimaryKey(productId);
+        if (product == null) {
+            return ResponseVo.error(ResponseEnum.PRODUCT_NOT_EXIST);
+        }
+        if (!ProductStatusEnum.ON_SALE.getCode().equals(product.getStatus())) {
+            return ResponseVo.error(ResponseEnum.PRODUCT_OFF_SALE_OR_DELETE);
+        }
+
         if (form.getQuantity() != null && form.getQuantity() >= 0) {
+            if (form.getQuantity() > product.getStock()) {
+                return ResponseVo.error(ResponseEnum.PRODUCT_STOCK_ERROR);
+            }
             cart.setQuantity(form.getQuantity());
         }
         if (form.getSelected() != null) {

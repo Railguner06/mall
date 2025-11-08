@@ -28,6 +28,12 @@ public interface UserMapper {
 
     int countByEmail(String email);//返回值大于零则证明数据库已存在相同的email
 
+    int countByPhone(String phone);// 返回值大于零则证明数据库已存在相同的手机号
+
     //用于登录用户时的信息校验
     User selectByUsername(String username);//根据用户名查询用户
+
+    User selectByEmail(String email);//根据邮箱查询用户
+
+    User selectByPhone(String phone);//根据手机号查询用户
 }
