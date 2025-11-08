@@ -60,6 +60,8 @@ CREATE TABLE `mall_order` (
   `send_time` DATETIME DEFAULT NULL COMMENT '发货时间',
   `end_time` DATETIME DEFAULT NULL COMMENT '交易完成时间',
   `close_time` DATETIME DEFAULT NULL COMMENT '交易关闭时间',
+  `tracking_number` VARCHAR(100) DEFAULT NULL COMMENT '运单编号',
+  `shipping_company` VARCHAR(50) DEFAULT NULL COMMENT '物流公司',
   `create_time` DATETIME DEFAULT NULL COMMENT '创建时间',
   `update_time` DATETIME DEFAULT NULL COMMENT '更新时间',
   PRIMARY KEY (`id`),

@@ -40,4 +40,7 @@ public class OrderVo {
     private Integer shippingId;
 
     private Shipping shippingVo;//因为在收货地址没有专门创建一个vo，直接用Shipping类
+
+    private String trackingNumber; // 运单编号
+    private String shippingCompany; // 物流公司
 }
