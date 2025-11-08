@@ -33,4 +33,15 @@ public interface IOrderService {
     // 平台批准退款（后管）
     ResponseVo approveRefund(Long orderNo);
 
+    //后台管理发货
+    ResponseVo ship(Long orderNo);
+    // 用户确认收货
+    ResponseVo receive(Integer uid, Long orderNo);
+
+    // 用户申请退款
+    ResponseVo applyRefund(Integer uid, Long orderNo, RefundForm form);
+
+    // 平台批准退款（后管）
+    ResponseVo approveRefund(Long orderNo);
+
 }
